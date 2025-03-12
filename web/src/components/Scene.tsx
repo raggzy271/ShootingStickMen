@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect } from "react";
-import { Canvas, useLoader, useThree } from "@react-three/fiber";
-import { Environment, Cylinder, Box, Sphere } from "@react-three/drei";
+import { Canvas, useThree } from "@react-three/fiber";
+import { Environment, Cylinder, Sphere } from "@react-three/drei";
 import * as THREE from "three";
 import { useMouseFollow } from "../hooks/mousefollow";
+import StickMan from "./StickMan";
 
 interface BloodParticle {
     id: number;
@@ -24,8 +25,6 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
     const [bloodParticles, setBloodParticles] = useState<BloodParticle[]>([]);
     const [bullets, setBullets] = useState<Bullet[]>([]);
 
-    const manTexture = useLoader(THREE.TextureLoader, "/images/man.jpeg");
-
     useMouseFollow(cylinderRef, camera);
 
     useEffect(() => {
@@ -38,7 +37,14 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                 }
                 return [
                     ...prevBoxes,
-                    { id: Date.now(), position: [Math.random() * 20 - 10, 0, Math.random() * -10] }
+                    {
+                        id: Date.now(),
+                        position: [
+                            Math.random() * 30 - 15, // wider range for x (-15 to 15)
+                            0,
+                            Math.random() * -20 - 5  // spawn between z=-5 and z=-25
+                        ]
+                    }
                 ];
             });
         }, 1000);
@@ -134,6 +140,7 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
         <>
             <ambientLight intensity={0.5} />
             <pointLight position={[10, 10, 10]} />
+            <directionalLight position={[-5, 5, -5]} intensity={0.5} />
 
             {/* Gun Cylinder */}
             <Cylinder
@@ -146,17 +153,13 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                 <meshStandardMaterial color="#5f5959" />
             </Cylinder>
 
+            {/* Replace boxes with StickMan */}
             {boxes.map(box => (
-                <Box
+                <StickMan
                     key={box.id}
-                    args={[1.5, 4, 0.5]}
                     position={box.position}
                     onClick={() => handleBoxClick(box.id, box.position)}
-                >
-                    <meshStandardMaterial
-                        map={manTexture}
-                    />
-                </Box>
+                />
             ))}
 
             {/* Blood Particles */}
