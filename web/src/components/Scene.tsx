@@ -190,7 +190,7 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                 </Sphere>
             ))}
 
-            <Environment preset="park" background />
+            <Environment files="images/space-background.jpg" background />
         </>
     );
 };
