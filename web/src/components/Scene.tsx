@@ -174,12 +174,12 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
 
             {/* Enhanced Lighting */}
             <ambientLight intensity={lightIntensity * 0.5} />
-            <directionalLight
+            {/* <directionalLight
                 position={sunPosition}
                 intensity={lightIntensity}
                 castShadow
                 shadow-mapSize={[2048, 2048]}
-            />
+            /> */}
             <spotLight
                 ref={spotLightRef}
                 position={[0, 10, 0]}
@@ -196,31 +196,18 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                 renderOrder={-1}
                 position={[0, -0.01, 0]}
                 args={[30, 30]}
-                cellSize={1}
-                cellThickness={0.5}
-                cellColor="#6f6f6f"
-                sectionSize={3}
-                sectionThickness={1}
-                sectionColor="#9d4b4b"
+                sectionThickness={0}
                 fadeDistance={30}
                 fadeStrength={1}
                 followCamera={false}
             />
-            <mesh rotation-x={-Math.PI / 2} position={[0, -0.01, 0]} receiveShadow>
-                <planeGeometry args={[100, 100]} />
-                <meshStandardMaterial
-                    color="#202020"
-                    metalness={0.2}
-                    roughness={0.8}
-                />
-            </mesh>
 
             {/* Gun Cylinder */}
             <Cylinder
                 ref={cylinderRef}
                 args={[0.125, 0.125, 5, 32]}
                 position={[0, 1, 5]}
-                rotation={[0, 0, Math.PI / 2]}
+                rotation={[0, 0, 0]}
                 onClick={shootBullet}
                 castShadow
             >

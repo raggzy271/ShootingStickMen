@@ -6,7 +6,8 @@ export const useMouseFollow = (meshRef: RefObject<Mesh>, camera: Camera) => {
         const raycaster = new Raycaster();
         const mouse = new Vector2();
         const targetPosition = new Vector3();
-        const plane = new Vector3(0, 0, 1);
+        const fixedPosition = new Vector3(0, 1, 5); // Fixed position for the gun
+        const upVector = new Vector3(0, 1, 0);
 
         const onMouseMove = (event: MouseEvent) => {
             if (!meshRef.current) return;
@@ -22,14 +23,20 @@ export const useMouseFollow = (meshRef: RefObject<Mesh>, camera: Camera) => {
             const distance = -raycaster.ray.origin.y / raycaster.ray.direction.y;
             targetPosition.copy(raycaster.ray.origin).add(raycaster.ray.direction.multiplyScalar(distance));
 
-            // Update cylinder position
-            meshRef.current.position.x = targetPosition.x;
-            meshRef.current.position.z = targetPosition.z;
+            // Keep the cylinder at fixed position
+            meshRef.current.position.copy(fixedPosition);
 
-            // Calculate rotation to face the camera
-            const direction = new Vector3().subVectors(camera.position, meshRef.current.position);
-            direction.y = 0; // Keep cylinder vertical
-            meshRef.current.lookAt(direction.add(meshRef.current.position));
+            // Calculate direction to target
+            const direction = new Vector3().subVectors(targetPosition, fixedPosition);
+            direction.y = 0; // Keep rotation horizontal only
+            direction.normalize();
+
+            // Calculate the angle between the current forward direction and target direction
+            const forward = new Vector3(1, 0, 0);
+            const angle = Math.atan2(direction.z, direction.x);
+
+            // Apply rotation around the Y axis (vertical axis)
+            meshRef.current.rotation.y = angle;
         };
 
         window.addEventListener('mousemove', onMouseMove);
