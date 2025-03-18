@@ -56,11 +56,30 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                     onGameOver();
                     return prevBoxes;
                 }
+                // Set position such that no two boxes overlap each other
+                // If overlapping, reinitialize position until it doesn't overlap with any other box
+                // By overlapping, we mean that no two boxes' x & z overlap with each other
+                // width of box is 1.5, so minimum distance between two centers should be greater than 3
+                let position: [number, number, number];
+                do {
+                    position = [
+                        Math.random() * 20 - 10,
+                        0,
+                        Math.random() * - 20
+                    ] as [number, number, number];
+                } while (
+                    prevBoxes.some(
+                        box =>
+                            Math.abs(box.position[0] - position[0]) < 3 &&
+                            Math.abs(box.position[2] - position[2]) < 3
+                    )
+                );
+                
                 return [
                     ...prevBoxes,
                     {
                         id: Date.now(),
-                        position: [Math.random() * 20 - 10, 0, Math.random() * -10],
+                        position,
                         rotation: [0, 0, 0],
                         scale: [1, 1, 1],
                         isDying: false,
