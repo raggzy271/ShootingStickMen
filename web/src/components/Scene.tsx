@@ -187,7 +187,7 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                 </Sphere>
             ))}
 
-            <Environment preset="park" background />
+            <Environment files="/hdrs/lilienstein_2k.hdr" background />
         </>
     );
 };
