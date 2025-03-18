@@ -23,6 +23,9 @@ interface Box {
     scale: [number, number, number];
     isDying: boolean;
     deathTime: number;
+    initialPhase: number;
+    middlePhase: number;
+    finalPhase: number;
 }
 
 interface ZombieParticle {
@@ -61,7 +64,10 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                         rotation: [0, 0, 0],
                         scale: [1, 1, 1],
                         isDying: false,
-                        deathTime: 0
+                        deathTime: 0,
+                        initialPhase: 0,
+                        middlePhase: 0,
+                        finalPhase: 0
                     }
                 ];
             });
@@ -87,35 +93,44 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
 
                         const progress = timeSinceDeath / animationDuration;
 
+                        // Color transition effect
+                        const initialPhase = Math.min(1, progress * 4); // First 25% of animation
+                        const middlePhase = Math.max(0, Math.min(1, (progress - 0.25) * 2)); // 25% to 75%
+                        const finalPhase = Math.max(0, (progress - 0.75) * 4); // Last 25%
+
                         // Slower, creepier fall animation
-                        const fallRotation = (Math.PI / 2) * Math.pow(progress, 2); // Slower fall
-                        const zombieWobble = Math.sin(progress * Math.PI * 2) * 0.1 * (1 - progress); // Subtle wobble
+                        const fallRotation = (Math.PI / 2) * Math.pow(progress, 2);
+                        const zombieWobble = Math.sin(progress * Math.PI * 2) * 0.1 * (1 - progress);
 
-                        // Disturbing scale changes
-                        const baseScaleY = 1 - (progress * 0.6); // Slower squish
-                        const pulseEffect = Math.sin(progress * Math.PI * 4) * 0.1 * (1 - progress);
-                        const scaleY = baseScaleY + pulseEffect; // Pulsing effect
-                        const scaleX = 1 + Math.sin(progress * Math.PI * 2) * 0.15; // Breathing effect
-                        const scaleZ = 1 + Math.cos(progress * Math.PI * 2) * 0.15;
+                        // Enhanced disturbing scale changes
+                        const baseScaleY = 1 - (progress * 0.6);
+                        const pulseEffect = Math.sin(progress * Math.PI * 6) * 0.15 * (1 - progress); // Faster pulsing
+                        const scaleY = baseScaleY + pulseEffect;
+                        const scaleX = 1 + Math.sin(progress * Math.PI * 4) * 0.2;
+                        const scaleZ = 1 + Math.cos(progress * Math.PI * 4) * 0.2;
 
-                        // Create zombie particles periodically
-                        if (Math.random() < 0.1) { // Adjust probability for particle frequency
+                        // Create more zombie particles during the transformation
+                        if (Math.random() < 0.15) {
                             createZombieParticle(box.position);
                         }
 
                         return {
                             ...box,
                             rotation: [
-                                fallRotation, // Slow fall
-                                box.rotation[1] + zombieWobble, // Subtle twist
-                                box.rotation[2] + zombieWobble * 0.5 // Slight tilt
+                                fallRotation,
+                                box.rotation[1] + zombieWobble,
+                                box.rotation[2] + zombieWobble * 0.5
                             ],
                             scale: [scaleX, scaleY, scaleZ],
                             position: [
-                                box.position[0] + Math.sin(progress * Math.PI) * 0.1, // Subtle horizontal movement
-                                box.position[1] - (progress * 0.8), // Slower fall
+                                box.position[0] + Math.sin(progress * Math.PI) * 0.1,
+                                box.position[1] - (progress * 0.8),
                                 box.position[2] + Math.cos(progress * Math.PI) * 0.1
-                            ]
+                            ],
+                            // Store animation phases for material effects
+                            initialPhase,
+                            middlePhase,
+                            finalPhase
                         };
                     }
                     return box;
@@ -150,21 +165,21 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
     }, []);
 
     const createZombieParticle = (position: [number, number, number]) => {
-        const colors = ['#4a6741', '#3d5a35', '#2d4326', '#1f2d1a']; // Zombie green variations
+        const colors = ['#ff0000', '#8B0000', '#4B0082', '#1a0000']; // Scary red and dark purple variations
         const newParticles: ZombieParticle[] = [];
 
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < 5; i++) { // Increased number of particles
             const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 0.1;
+            const speed = Math.random() * 0.15; // Increased speed
             newParticles.push({
                 id: Date.now() + i,
                 position: [...position] as [number, number, number],
                 velocity: [
                     Math.cos(angle) * speed,
-                    Math.random() * 0.1, // Slow upward drift
+                    Math.random() * 0.15, // Faster upward drift
                     Math.sin(angle) * speed
                 ] as [number, number, number],
-                scale: Math.random() * 0.3 + 0.2,
+                scale: Math.random() * 0.4 + 0.3, // Larger particles
                 color: colors[Math.floor(Math.random() * colors.length)]
             });
         }
@@ -289,17 +304,44 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                 >
                     <meshStandardMaterial
                         map={manTexture}
-                        emissive={box.isDying ? "#447744" : "#000000"}
-                        emissiveIntensity={box.isDying ? 0.5 : 0}
+                        emissive={box.isDying
+                            ? (box as any).initialPhase < 1
+                                ? "#ff0000" // Initial bright red flash
+                                : (box as any).middlePhase < 1
+                                    ? "#4B0082" // Deep purple
+                                    : "#1a0000" // Almost black with slight red tint
+                            : "#000000"
+                        }
+                        emissiveIntensity={box.isDying
+                            ? 2 + Math.sin(Date.now() * 0.02) * 1.5 // More intense pulsing
+                            : 0
+                        }
                         transparent
-                        opacity={box.isDying ? Math.max(0.4, 1 - ((Date.now() - box.deathTime) / 2500)) : 1}
-                        metalness={box.isDying ? 0.3 : 0.1}
-                        roughness={box.isDying ? 0.9 : 0.8}
+                        opacity={box.isDying
+                            ? Math.max(0.6, 1 - ((Date.now() - box.deathTime) / 2500)) // Higher minimum opacity
+                            : 1
+                        }
+                        metalness={box.isDying
+                            ? 0.8 + Math.sin(Date.now() * 0.01) * 0.2 // Pulsing metalness
+                            : 0.1
+                        }
+                        roughness={box.isDying
+                            ? 0.2 + Math.sin(Date.now() * 0.015) * 0.1 // Pulsing roughness
+                            : 0.8
+                        }
+                        color={box.isDying
+                            ? (box as any).initialPhase < 1
+                                ? "#ffffff" // Initial bright flash
+                                : (box as any).middlePhase < 1
+                                    ? "#ff1a1a" // Bright red
+                                    : "#330000" // Dark red
+                            : "#ffffff"
+                        }
                     />
                 </Box>
             ))}
 
-            {/* Zombie Particles */}
+            {/* Zombie Particles (now more like dark energy particles) */}
             {zombieParticles.map(particle => (
                 <Sphere
                     key={particle.id}
@@ -310,9 +352,11 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                     <meshStandardMaterial
                         color={particle.color}
                         transparent
-                        opacity={0.8}
+                        opacity={0.9}
                         emissive={particle.color}
-                        emissiveIntensity={0.2}
+                        emissiveIntensity={0.8}
+                        metalness={0.7}
+                        roughness={0.2}
                     />
                 </Sphere>
             ))}
@@ -321,15 +365,15 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
             {bloodParticles.map(particle => (
                 <Sphere
                     key={particle.id}
-                    args={[0.15]} // Larger blood particles
+                    args={[0.2]} // Larger blood particles
                     position={particle.position}
                 >
                     <meshStandardMaterial
-                        color="#8B0000"
-                        emissive="#310000"
-                        emissiveIntensity={0.8}
-                        metalness={0.3}
-                        roughness={0.2}
+                        color="#ff0000"
+                        emissive="#8B0000"
+                        emissiveIntensity={1.2}
+                        metalness={0.5}
+                        roughness={0.3}
                     />
                 </Sphere>
             ))}
