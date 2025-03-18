@@ -16,13 +16,31 @@ interface Bullet {
     velocity: [number, number, number];
 }
 
+interface Box {
+    id: number;
+    position: [number, number, number];
+    rotation: [number, number, number];
+    scale: [number, number, number];
+    isDying: boolean;
+    deathTime: number;
+}
+
+interface ZombieParticle {
+    id: number;
+    position: [number, number, number];
+    velocity: [number, number, number];
+    scale: number;
+    color: string;
+}
+
 const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }> = ({ onBoxClick, onGameOver }) => {
     const cylinderRef = useRef<THREE.Mesh | null>(null);
     const { camera } = useThree();
 
-    const [boxes, setBoxes] = useState<{ id: number, position: [number, number, number] }[]>([]);
+    const [boxes, setBoxes] = useState<Box[]>([]);
     const [bloodParticles, setBloodParticles] = useState<BloodParticle[]>([]);
     const [bullets, setBullets] = useState<Bullet[]>([]);
+    const [zombieParticles, setZombieParticles] = useState<ZombieParticle[]>([]);
 
     const manTexture = useLoader(THREE.TextureLoader, "/images/man.jpeg");
 
@@ -31,20 +49,128 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
     useEffect(() => {
         const interval = setInterval(() => {
             setBoxes(prevBoxes => {
-                // Check if adding a new box would exceed the limit
                 if (prevBoxes.length >= 10) {
                     onGameOver();
                     return prevBoxes;
                 }
                 return [
                     ...prevBoxes,
-                    { id: Date.now(), position: [Math.random() * 20 - 10, 0, Math.random() * -10] }
+                    {
+                        id: Date.now(),
+                        position: [Math.random() * 20 - 10, 0, Math.random() * -10],
+                        rotation: [0, 0, 0],
+                        scale: [1, 1, 1],
+                        isDying: false,
+                        deathTime: 0
+                    }
                 ];
             });
         }, 1000);
 
         return () => clearInterval(interval);
     }, [onGameOver]);
+
+    // Update animations with zombie-like death
+    useEffect(() => {
+        let animationFrameId: number;
+
+        const updateAnimations = () => {
+            setBoxes(prevBoxes => {
+                return prevBoxes.map(box => {
+                    if (box.isDying) {
+                        const timeSinceDeath = Date.now() - box.deathTime;
+                        const animationDuration = 2500; // 2.5 seconds animation
+
+                        if (timeSinceDeath >= animationDuration) {
+                            return null;
+                        }
+
+                        const progress = timeSinceDeath / animationDuration;
+
+                        // Slower, creepier fall animation
+                        const fallRotation = (Math.PI / 2) * Math.pow(progress, 2); // Slower fall
+                        const zombieWobble = Math.sin(progress * Math.PI * 2) * 0.1 * (1 - progress); // Subtle wobble
+
+                        // Disturbing scale changes
+                        const baseScaleY = 1 - (progress * 0.6); // Slower squish
+                        const pulseEffect = Math.sin(progress * Math.PI * 4) * 0.1 * (1 - progress);
+                        const scaleY = baseScaleY + pulseEffect; // Pulsing effect
+                        const scaleX = 1 + Math.sin(progress * Math.PI * 2) * 0.15; // Breathing effect
+                        const scaleZ = 1 + Math.cos(progress * Math.PI * 2) * 0.15;
+
+                        // Create zombie particles periodically
+                        if (Math.random() < 0.1) { // Adjust probability for particle frequency
+                            createZombieParticle(box.position);
+                        }
+
+                        return {
+                            ...box,
+                            rotation: [
+                                fallRotation, // Slow fall
+                                box.rotation[1] + zombieWobble, // Subtle twist
+                                box.rotation[2] + zombieWobble * 0.5 // Slight tilt
+                            ],
+                            scale: [scaleX, scaleY, scaleZ],
+                            position: [
+                                box.position[0] + Math.sin(progress * Math.PI) * 0.1, // Subtle horizontal movement
+                                box.position[1] - (progress * 0.8), // Slower fall
+                                box.position[2] + Math.cos(progress * Math.PI) * 0.1
+                            ]
+                        };
+                    }
+                    return box;
+                }).filter(Boolean) as Box[];
+            });
+
+            // Update zombie particles
+            setZombieParticles(prevParticles => {
+                return prevParticles
+                    .map(particle => ({
+                        ...particle,
+                        position: [
+                            particle.position[0] + particle.velocity[0],
+                            particle.position[1] + particle.velocity[1],
+                            particle.position[2] + particle.velocity[2]
+                        ] as [number, number, number],
+                        scale: particle.scale * 0.98, // Slowly shrink
+                        velocity: [
+                            particle.velocity[0] * 0.98,
+                            particle.velocity[1] - 0.01, // Slow fall
+                            particle.velocity[2] * 0.98
+                        ] as [number, number, number]
+                    }))
+                    .filter(particle => particle.scale > 0.1); // Remove when too small
+            });
+
+            animationFrameId = requestAnimationFrame(updateAnimations);
+        };
+
+        animationFrameId = requestAnimationFrame(updateAnimations);
+        return () => cancelAnimationFrame(animationFrameId);
+    }, []);
+
+    const createZombieParticle = (position: [number, number, number]) => {
+        const colors = ['#4a6741', '#3d5a35', '#2d4326', '#1f2d1a']; // Zombie green variations
+        const newParticles: ZombieParticle[] = [];
+
+        for (let i = 0; i < 3; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 0.1;
+            newParticles.push({
+                id: Date.now() + i,
+                position: [...position] as [number, number, number],
+                velocity: [
+                    Math.cos(angle) * speed,
+                    Math.random() * 0.1, // Slow upward drift
+                    Math.sin(angle) * speed
+                ] as [number, number, number],
+                scale: Math.random() * 0.3 + 0.2,
+                color: colors[Math.floor(Math.random() * colors.length)]
+            });
+        }
+
+        setZombieParticles(prev => [...prev, ...newParticles]);
+    };
 
     // Update blood particles
     useEffect(() => {
@@ -91,13 +217,13 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
     }, []);
 
     const createBloodEffect = (position: [number, number, number]) => {
-        const numParticles = 20;
+        const numParticles = 30; // More particles
         const newParticles: BloodParticle[] = [];
 
         for (let i = 0; i < numParticles; i++) {
             const angle = (Math.random() * Math.PI * 2);
-            const speed = Math.random() * 0.3 + 0.1;
-            const upwardSpeed = Math.random() * 0.2 + 0.1;
+            const speed = Math.random() * 0.5 + 0.2; // Faster particles
+            const upwardSpeed = Math.random() * 0.4 + 0.2; // Higher upward speed
 
             newParticles.push({
                 id: Date.now() + i,
@@ -113,9 +239,15 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
         setBloodParticles(prev => [...prev, ...newParticles]);
     };
 
-    const handleBoxClick = (id: number, position: [number, number, number]) => {
-        createBloodEffect(position);
-        setBoxes(prevBoxes => prevBoxes.filter(box => box.id !== id));
+    const handleBoxHit = (box: Box) => {
+        createBloodEffect(box.position);
+        setBoxes(prevBoxes =>
+            prevBoxes.map(b =>
+                b.id === box.id
+                    ? { ...b, isDying: true, deathTime: Date.now() }
+                    : b
+            )
+        );
         onBoxClick();
     };
 
@@ -151,25 +283,53 @@ const SceneObjects: React.FC<{ onBoxClick: () => void, onGameOver: () => void }>
                     key={box.id}
                     args={[1.5, 4, 0.5]}
                     position={box.position}
-                    onClick={() => handleBoxClick(box.id, box.position)}
+                    rotation={box.rotation}
+                    scale={box.scale}
+                    onClick={() => handleBoxHit(box)}
                 >
                     <meshStandardMaterial
                         map={manTexture}
+                        emissive={box.isDying ? "#447744" : "#000000"}
+                        emissiveIntensity={box.isDying ? 0.5 : 0}
+                        transparent
+                        opacity={box.isDying ? Math.max(0.4, 1 - ((Date.now() - box.deathTime) / 2500)) : 1}
+                        metalness={box.isDying ? 0.3 : 0.1}
+                        roughness={box.isDying ? 0.9 : 0.8}
                     />
                 </Box>
+            ))}
+
+            {/* Zombie Particles */}
+            {zombieParticles.map(particle => (
+                <Sphere
+                    key={particle.id}
+                    args={[0.2]}
+                    position={particle.position}
+                    scale={particle.scale}
+                >
+                    <meshStandardMaterial
+                        color={particle.color}
+                        transparent
+                        opacity={0.8}
+                        emissive={particle.color}
+                        emissiveIntensity={0.2}
+                    />
+                </Sphere>
             ))}
 
             {/* Blood Particles */}
             {bloodParticles.map(particle => (
                 <Sphere
                     key={particle.id}
-                    args={[0.1]}
+                    args={[0.15]} // Larger blood particles
                     position={particle.position}
                 >
                     <meshStandardMaterial
                         color="#8B0000"
                         emissive="#310000"
-                        emissiveIntensity={0.5}
+                        emissiveIntensity={0.8}
+                        metalness={0.3}
+                        roughness={0.2}
                     />
                 </Sphere>
             ))}
